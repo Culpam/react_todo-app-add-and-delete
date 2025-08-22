@@ -10,7 +10,7 @@ import { TodoItem } from './components/TodoItem';
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [filter, setFilter] = useState<Filter>(FILTER.ALL);
+  const [filterBy, setFilterBy] = useState<Filter>(FILTER.ALL);
   const [deletingIds, setDeletingIds] = useState<Set<number>>(new Set());
 
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
@@ -18,14 +18,14 @@ export const App: React.FC = () => {
   const [error, setError] = useState('');
   const errorTimerId = useRef(0);
 
-  const field = useRef<HTMLInputElement>(null);
+  const mainInput = useRef<HTMLInputElement>(null);
 
-  const showError = (msg: string) => {
+  const showError = (errorMsg: string) => {
     if (errorTimerId.current) {
       window.clearTimeout(errorTimerId.current);
     }
 
-    setError(msg);
+    setError(errorMsg);
     errorTimerId.current = window.setTimeout(() => setError(''), 3000);
   };
 
@@ -39,7 +39,7 @@ export const App: React.FC = () => {
   };
 
   const handleFilterChange = (filterParam: Filter) => {
-    setFilter(filterParam);
+    setFilterBy(filterParam);
   };
 
   useEffect(() => {
@@ -60,20 +60,20 @@ export const App: React.FC = () => {
   const addTodo = async (title: string) => {
     hideError();
 
-    const fakeTodo: Todo = {
+    const todo: Todo = {
       id: 0,
       userId: todoService.USER_ID,
       title: title.trim(),
       completed: false,
     };
 
-    setTempTodo(fakeTodo);
+    setTempTodo(todo);
 
     try {
       const newTodo = await todoService.addTodo(title);
 
       setTodos(currentTodos => [...currentTodos, newTodo]);
-      field.current?.focus();
+      mainInput.current?.focus();
 
       return true;
     } catch {
@@ -90,7 +90,7 @@ export const App: React.FC = () => {
     try {
       await todoService.deleteTodo(todoId);
       setTodos(currentTodos => currentTodos.filter(todo => todo.id !== todoId));
-      field.current?.focus();
+      mainInput.current?.focus();
     } catch {
       showError('Unable to delete a todo');
     } finally {
@@ -109,9 +109,16 @@ export const App: React.FC = () => {
   };
 
   const filteredTodos = todos.filter(todo => {
-    return filter === FILTER.ALL
-      ? true
-      : (filter === FILTER.COMPLETED) === todo.completed;
+    switch (filterBy) {
+      case FILTER.ALL:
+        return true;
+      case FILTER.COMPLETED:
+        return todo.completed;
+      case FILTER.ACTIVE:
+        return !todo.completed;
+      default:
+        return true;
+    }
   });
 
   return (
@@ -121,7 +128,7 @@ export const App: React.FC = () => {
       <div className="todoapp__content">
         <Header
           todos={todos}
-          inputRef={field}
+          inputRef={mainInput}
           onSubmit={addTodo}
           onError={showError}
         />
@@ -134,19 +141,16 @@ export const App: React.FC = () => {
 
         {tempTodo && <TodoItem todo={tempTodo} isTempTodo />}
 
-        {/* Hide the footer if there are no todos */}
         {todos.length > 0 && (
           <Footer
             todos={todos}
-            filter={filter}
+            filterBy={filterBy}
             onFilterChange={handleFilterChange}
             onClearCompleted={clearCompleted}
           />
         )}
       </div>
 
-      {/* DON'T use conditional rendering to hide the notification */}
-      {/* Add the 'hidden' class to hide the message smoothly */}
       <ErrorNotification errorMsg={error} onClose={hideError} />
     </div>
   );
